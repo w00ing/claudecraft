@@ -6,6 +6,7 @@ import { spawn } from "node:child_process";
 import {
   installGameAssetsPack,
   doctorGameAssets,
+  readGameAssetsManifest,
   resolveGameAssets
 } from "../lib/game-assets.js";
 import {
@@ -24,6 +25,8 @@ import type {
   GameAssetsDoctorOptions,
   GameAssetsInstallOptions,
   GameAssetKey,
+  GameUiMode,
+  GameUiRuntimeConfig,
   GameResetOptions,
   GameSessionStatus,
   GameState,
@@ -48,17 +51,30 @@ export async function runGameWatch(
   runtime: { packageRoot: string }
 ): Promise<void> {
   const context = await resolveGameContext(options);
+  const uiMode = resolveUiMode(options.uiMode);
   const resolvedAssets = await withSpinner(
     "Preparing game assets",
     () => resolveGameAssets({ packageRoot: runtime.packageRoot, verbose: options.verbose }),
     "Assets ready"
   );
+  const assetsManifest = await readGameAssetsManifest(runtime.packageRoot);
 
   if (resolvedAssets.fallbackReason) {
     process.stdout.write(`Asset fallback: ${resolvedAssets.fallbackReason}\n`);
   }
 
+  const gameUiDistDir = path.join(runtime.packageRoot, "dist", "game-ui");
+  if (uiMode === "phaser") {
+    await ensurePhaserBuildExists(gameUiDistDir);
+  }
+
   const idleThresholdSec = normalizeIdleThreshold(options.idleThresholdSec);
+  const runtimeConfig: GameUiRuntimeConfig = {
+    idleThresholdSec,
+    apiBase: "/api",
+    race: context.race,
+    assetPackVersion: assetsManifest.version
+  };
   const gameState = await ensureStateExists(context.gameStatePath, context.race);
   const port = options.port ?? DEFAULT_GAME_PORT;
   const clients = new Set<http.ServerResponse>();
@@ -66,12 +82,6 @@ export async function runGameWatch(
   const server = http.createServer(async (req, res) => {
     const method = req.method ?? "GET";
     const parsed = new URL(req.url ?? "/", `http://127.0.0.1:${port}`);
-
-    if (method === "GET" && parsed.pathname === "/") {
-      res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
-      res.end(buildDashboardHtml(context.race, idleThresholdSec));
-      return;
-    }
 
     if (method === "GET" && parsed.pathname === "/api/state") {
       const state = (await loadGameState(context.gameStatePath)) ?? gameState;
@@ -96,8 +106,8 @@ export async function runGameWatch(
       return;
     }
 
-    if (method === "GET" && parsed.pathname.startsWith("/assets/")) {
-      const key = parsed.pathname.replace("/assets/", "") as GameAssetKey;
+    if (method === "GET" && parsed.pathname.startsWith("/game-assets/")) {
+      const key = parsed.pathname.replace("/game-assets/", "") as GameAssetKey;
       const filePath = resolvedAssets.files[key];
       if (!filePath) {
         res.writeHead(404);
@@ -115,6 +125,26 @@ export async function runGameWatch(
         res.writeHead(404);
         res.end("missing asset");
       }
+      return;
+    }
+
+    if (uiMode === "phaser" && method === "GET" && parsed.pathname === "/runtime-config.json") {
+      writeJson(res, runtimeConfig);
+      return;
+    }
+
+    if (method === "GET" && parsed.pathname === "/") {
+      if (uiMode === "legacy") {
+        res.writeHead(200, { "content-type": "text/html; charset=utf-8" });
+        res.end(buildDashboardHtml(context.race, idleThresholdSec));
+        return;
+      }
+      await servePhaserStatic(res, gameUiDistDir, "/index.html");
+      return;
+    }
+
+    if (uiMode === "phaser" && method === "GET") {
+      await servePhaserStatic(res, gameUiDistDir, parsed.pathname);
       return;
     }
 
@@ -154,6 +184,7 @@ export async function runGameWatch(
   process.stdout.write(`Race: ${context.race}\n`);
   process.stdout.write(`Config: ${context.configPath}\n`);
   process.stdout.write(`Game state: ${context.gameStatePath}\n`);
+  process.stdout.write(`UI mode: ${uiMode}\n`);
   process.stdout.write(`Idle threshold: ${idleThresholdSec}s\n`);
   process.stdout.write(`Game dashboard: ${url}\n`);
 
@@ -380,7 +411,77 @@ export function normalizeIdleThreshold(value: number | undefined): number {
   return Math.max(1, Math.floor(value));
 }
 
+function resolveUiMode(value: GameUiMode | undefined): GameUiMode {
+  if (value === "legacy") {
+    return "legacy";
+  }
+  return "phaser";
+}
+
+async function ensurePhaserBuildExists(distDir: string): Promise<void> {
+  const indexPath = path.join(distDir, "index.html");
+  try {
+    await fs.access(indexPath);
+  } catch {
+    throw new Error(
+      `Phaser UI build not found at ${indexPath}. Run 'bun run build:game-ui' first or use --ui legacy.`
+    );
+  }
+}
+
+async function servePhaserStatic(
+  res: http.ServerResponse,
+  distDir: string,
+  pathname: string
+): Promise<void> {
+  const normalizedPath = pathname === "/" ? "/index.html" : pathname;
+  const safePath = decodeURIComponent(normalizedPath).replace(/^\/+/, "");
+  const resolved = path.resolve(distDir, safePath);
+  if (!resolved.startsWith(path.resolve(distDir))) {
+    res.writeHead(400);
+    res.end("bad request");
+    return;
+  }
+
+  let targetPath = resolved;
+  try {
+    const stat = await fs.stat(targetPath);
+    if (stat.isDirectory()) {
+      targetPath = path.join(targetPath, "index.html");
+    }
+  } catch {
+    targetPath = path.join(distDir, "index.html");
+  }
+
+  try {
+    const body = await fs.readFile(targetPath);
+    res.writeHead(200, {
+      "content-type": contentTypeFor(targetPath),
+      "cache-control": targetPath.endsWith(".html") ? "no-cache" : "public, max-age=31536000"
+    });
+    res.end(body);
+  } catch {
+    res.writeHead(404);
+    res.end("not found");
+  }
+}
+
 function contentTypeFor(filePath: string): string {
+  if (filePath.endsWith(".html")) {
+    return "text/html; charset=utf-8";
+  }
+  if (filePath.endsWith(".js")) {
+    return "application/javascript; charset=utf-8";
+  }
+  if (filePath.endsWith(".css")) {
+    return "text/css; charset=utf-8";
+  }
+  if (filePath.endsWith(".json")) {
+    return "application/json; charset=utf-8";
+  }
+  if (filePath.endsWith(".map")) {
+    return "application/json; charset=utf-8";
+  }
   if (filePath.endsWith(".svg")) {
     return "image/svg+xml";
   }
@@ -655,9 +756,9 @@ function buildDashboardHtml(race: FixedRace, idleThresholdSec: number): string {
         worker: new Image(),
         mineralPatch: new Image()
       };
-      images.base.src = '/assets/base';
-      images.worker.src = '/assets/worker';
-      images.mineralPatch.src = '/assets/mineralPatch';
+      images.base.src = '/game-assets/base';
+      images.worker.src = '/game-assets/worker';
+      images.mineralPatch.src = '/game-assets/mineralPatch';
 
       const scene = {
         scvs: [],

@@ -14,10 +14,15 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "build": "bun run build:cli && bun run build:game-ui",
+    "build:cli": "tsc -p tsconfig.json",
+    "build:game-ui": "vite build",
+    "typecheck": "bun run typecheck:cli && bun run typecheck:game-ui",
+    "typecheck:cli": "tsc --noEmit -p tsconfig.json",
+    "typecheck:game-ui": "tsc --noEmit -p game-ui/tsconfig.json",
     "test": "bun test",
-    "dev:game": "bun --watch src/cli.ts game watch --port 4317 --open",
+    "dev:game": "concurrently -k -n UI,CLI \"vite build --watch\" \"bun --watch src/cli.ts game --ui phaser --port 4318 --open\"",
+    "dev:game-ui": "vite",
     "curate:tool-sounds": "bun scripts/curate-tool-pools.ts --write",
     "prepublishOnly": "bun run build"
   },
@@ -41,6 +46,9 @@
   },
   "devDependencies": {
     "@types/node": "^24.3.0",
-    "typescript": "^5.9.2"
+    "concurrently": "^9.2.1",
+    "phaser": "^3.90.0",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.5"
   }
 }

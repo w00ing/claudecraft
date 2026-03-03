@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClaudeCraft RTS</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        min-height: 100%;
+        background: #071322;
+        font-family: monospace;
+      }
+
+      #app {
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+      }
+
+      canvas {
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.45);
+        border-radius: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

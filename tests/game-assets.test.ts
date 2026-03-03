@@ -10,13 +10,13 @@ describe("game-assets", () => {
   test("reads game asset manifest", async () => {
     const manifest = await readGameAssetsManifest(packageRoot);
     expect(manifest.version).toBe(1);
-    expect(manifest.defaultPack).toBe("placeholder");
-    expect(manifest.packs.placeholder.files.worker).toBe("worker.svg");
+    expect(manifest.defaultPack).toBe("open-rts");
+    expect(manifest.packs["open-rts"].files.worker).toBe("worker.svg");
   });
 
-  test("resolves placeholder pack by default", async () => {
+  test("resolves bundled open-rts pack by default", async () => {
     const resolved = await resolveGameAssets({ packageRoot });
-    expect(resolved.selectedPack).toBe("placeholder");
+    expect(resolved.selectedPack).toBe("open-rts");
     expect(resolved.files.worker).toContain("worker");
     expect(resolved.sourceDir.length).toBeGreaterThan(0);
   });

@@ -1,7 +1,18 @@
 {
   "version": 1,
-  "defaultPack": "placeholder",
+  "defaultPack": "open-rts",
   "packs": {
+    "open-rts": {
+      "source": "bundled",
+      "files": {
+        "worker": "worker.svg",
+        "base": "base.svg",
+        "mineralPatch": "mineral-patch.svg",
+        "unitLight": "unit-light.svg",
+        "unitHeavy": "unit-heavy.svg",
+        "queue": "queue.svg"
+      }
+    },
     "placeholder": {
       "source": "generated",
       "files": {

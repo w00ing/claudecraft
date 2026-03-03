@@ -56,6 +56,22 @@ export async function resolveGameAssets(input: {
   const manifest = await readGameAssetsManifest(input.packageRoot);
   const userConfig = await readUserAssetConfig();
   const selectedPack = userConfig?.selectedPack ?? manifest.defaultPack;
+  const openRtsDir = path.join(input.packageRoot, "assets", "open-rts-pack");
+
+  if (selectedPack === "open-rts") {
+    const missing = await missingPackFiles(openRtsDir, manifest.packs["open-rts"].files);
+    if (missing.length === 0) {
+      return {
+        selectedPack: "open-rts",
+        sourceDir: openRtsDir,
+        files: resolveFileMap(openRtsDir, manifest.packs["open-rts"].files)
+      };
+    }
+    return await fallbackToPlaceholder(
+      manifest,
+      `Open RTS pack missing files: ${missing.join(", ")}`
+    );
+  }
 
   if (selectedPack === "starcraft-local") {
     const customPackDir = userConfig?.customPackDir;
@@ -94,6 +110,23 @@ export async function installGameAssetsPack(input: {
   verbose?: boolean;
 }): Promise<{ selectedPack: GameAssetPackName; sourceDir: string; missing: string[] }> {
   const manifest = await readGameAssetsManifest(input.packageRoot);
+  const openRtsDir = path.join(input.packageRoot, "assets", "open-rts-pack");
+
+  if (input.pack === "open-rts") {
+    const missing = await missingPackFiles(openRtsDir, manifest.packs["open-rts"].files);
+    if (missing.length > 0) {
+      throw new Error(`Bundled open-rts pack is missing files: ${missing.join(", ")}`);
+    }
+    await writeUserAssetConfig({
+      selectedPack: "open-rts",
+      installedAt: new Date().toISOString()
+    });
+    return {
+      selectedPack: "open-rts",
+      sourceDir: openRtsDir,
+      missing: []
+    };
+  }
 
   if (input.pack === "placeholder") {
     await ensurePlaceholderPackFiles(manifest.packs.placeholder.files);
@@ -145,7 +178,9 @@ export async function doctorGameAssets(packageRoot: string): Promise<GameAssetsD
   const filesForSelectedPack =
     resolved.selectedPack === "starcraft-local"
       ? manifest.packs["starcraft-local"].files
-      : manifest.packs.placeholder.files;
+      : resolved.selectedPack === "open-rts"
+        ? manifest.packs["open-rts"].files
+        : manifest.packs.placeholder.files;
 
   const missing = await missingPackFiles(resolved.sourceDir, filesForSelectedPack);
 
@@ -277,14 +312,22 @@ function isGameAssetsManifest(value: unknown): value is GameAssetsManifest {
   if (manifest.version !== 1) {
     return false;
   }
-  if (manifest.defaultPack !== "placeholder" && manifest.defaultPack !== "starcraft-local") {
+  if (
+    manifest.defaultPack !== "open-rts" &&
+    manifest.defaultPack !== "placeholder" &&
+    manifest.defaultPack !== "starcraft-local"
+  ) {
     return false;
   }
   if (!manifest.packs || typeof manifest.packs !== "object" || Array.isArray(manifest.packs)) {
     return false;
   }
 
-  return isPackDefinition(manifest.packs.placeholder) && isPackDefinition(manifest.packs["starcraft-local"]);
+  return (
+    isPackDefinition(manifest.packs["open-rts"]) &&
+    isPackDefinition(manifest.packs.placeholder) &&
+    isPackDefinition(manifest.packs["starcraft-local"])
+  );
 }
 
 function isPackDefinition(value: unknown): boolean {
@@ -293,7 +336,7 @@ function isPackDefinition(value: unknown): boolean {
   }
 
   const pack = value as Partial<{ source: string; files: Record<string, string> }>;
-  if (pack.source !== "generated" && pack.source !== "user") {
+  if (pack.source !== "bundled" && pack.source !== "generated" && pack.source !== "user") {
     return false;
   }
   if (!pack.files || typeof pack.files !== "object" || Array.isArray(pack.files)) {
@@ -313,7 +356,11 @@ function isGameAssetUserConfig(value: unknown): value is GameAssetUserConfig {
   }
 
   const config = value as Partial<GameAssetUserConfig>;
-  if (config.selectedPack !== "placeholder" && config.selectedPack !== "starcraft-local") {
+  if (
+    config.selectedPack !== "open-rts" &&
+    config.selectedPack !== "placeholder" &&
+    config.selectedPack !== "starcraft-local"
+  ) {
     return false;
   }
   if (typeof config.installedAt !== "string" || config.installedAt.length === 0) {

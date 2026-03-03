@@ -15,7 +15,13 @@ import { runSwitch } from "./commands/switch.js";
 import { runUninstall } from "./commands/uninstall.js";
 import { selectPrompt } from "./lib/prompt.js";
 import { packageRootFromMeta } from "./lib/runtime-paths.js";
-import type { GameAssetPackName, HookPreset, InstallScope, RaceOption } from "./lib/types.js";
+import type {
+  GameAssetPackName,
+  GameUiMode,
+  HookPreset,
+  InstallScope,
+  RaceOption
+} from "./lib/types.js";
 import { showIntro, showOutro } from "./lib/ui.js";
 
 const runtime = { packageRoot: packageRootFromMeta(import.meta.url) };
@@ -135,6 +141,8 @@ game
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
   .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--ui <mode>", "phaser|legacy", parseGameUi)
+  .option("--legacy-ui", "Use legacy inline dashboard renderer")
   .option("--port <port>", "Dashboard port", parseInteger)
   .option(
     "--idle-threshold <seconds>",
@@ -149,6 +157,7 @@ game
         scope: opts.scope as InstallScope | undefined,
         projectDir: opts.projectDir,
         configPath: opts.configPath,
+        uiMode: opts.legacyUi ? "legacy" : (opts.ui as GameUiMode | undefined),
         port: opts.port,
         idleThresholdSec: opts.idleThreshold,
         open: opts.open,
@@ -164,6 +173,8 @@ game
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
   .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--ui <mode>", "phaser|legacy", parseGameUi)
+  .option("--legacy-ui", "Use legacy inline dashboard renderer")
   .option("--port <port>", "Dashboard port", parseInteger)
   .option(
     "--idle-threshold <seconds>",
@@ -178,6 +189,7 @@ game
         scope: opts.scope as InstallScope | undefined,
         projectDir: opts.projectDir,
         configPath: opts.configPath,
+        uiMode: opts.legacyUi ? "legacy" : (opts.ui as GameUiMode | undefined),
         port: opts.port,
         idleThresholdSec: opts.idleThreshold,
         open: opts.open,
@@ -228,7 +240,7 @@ const assets = game.command("assets").description("Install and inspect game visu
 assets
   .command("install")
   .description("Install or configure game visual asset pack")
-  .option("--pack <pack>", "placeholder|starcraft-local", parseAssetPack)
+  .option("--pack <pack>", "open-rts|placeholder|starcraft-local", parseAssetPack)
   .option("--assets-dir <path>", "Path to custom starcraft-local asset directory")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
@@ -361,8 +373,15 @@ function parseInteger(value: string): number {
 }
 
 function parseAssetPack(value: string): GameAssetPackName {
-  if (value === "placeholder" || value === "starcraft-local") {
+  if (value === "open-rts" || value === "placeholder" || value === "starcraft-local") {
     return value;
   }
-  throw new Error("pack must be one of: placeholder, starcraft-local");
+  throw new Error("pack must be one of: open-rts, placeholder, starcraft-local");
+}
+
+function parseGameUi(value: string): GameUiMode {
+  if (value === "phaser" || value === "legacy") {
+    return value;
+  }
+  throw new Error("ui must be one of: phaser, legacy");
 }

@@ -133,7 +133,7 @@ export interface DoctorOptions {
   verbose?: boolean;
 }
 
-export type GameAssetPackName = "placeholder" | "starcraft-local";
+export type GameAssetPackName = "open-rts" | "placeholder" | "starcraft-local";
 
 export const GAME_ASSET_KEYS = [
   "worker",
@@ -147,7 +147,7 @@ export const GAME_ASSET_KEYS = [
 export type GameAssetKey = (typeof GAME_ASSET_KEYS)[number];
 
 export interface GameAssetPackDefinition {
-  source: "generated" | "user";
+  source: "bundled" | "generated" | "user";
   files: Record<GameAssetKey, string>;
 }
 
@@ -213,6 +213,15 @@ export interface GameStateEnvelope {
   boundGameStatePath: string;
 }
 
+export type GameUiMode = "phaser" | "legacy";
+
+export interface GameUiRuntimeConfig {
+  idleThresholdSec: number;
+  apiBase: string;
+  race: FixedRace;
+  assetPackVersion: number;
+}
+
 export interface GameCommandCommonOptions {
   scope?: InstallScope;
   configPath?: string;
@@ -224,6 +233,7 @@ export interface GameWatchOptions extends GameCommandCommonOptions {
   port?: number;
   open?: boolean;
   idleThresholdSec?: number;
+  uiMode?: GameUiMode;
 }
 
 export interface GameStatusOptions extends GameCommandCommonOptions {
