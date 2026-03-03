@@ -68,6 +68,17 @@ npx @wyverselabs/claudecraft doctor
 npx @wyverselabs/claudecraft doctor --json
 ```
 
+### Game mode (RTS dashboard)
+
+```bash
+npx @wyverselabs/claudecraft game --open
+npx @wyverselabs/claudecraft game watch --open --idle-threshold 20
+npx @wyverselabs/claudecraft game status
+npx @wyverselabs/claudecraft game reset --yes
+npx @wyverselabs/claudecraft game assets install --pack placeholder
+npx @wyverselabs/claudecraft game assets doctor
+```
+
 ### Run tests
 
 ```bash
@@ -90,6 +101,9 @@ bun run curate:tool-sounds
 - Failure alerts use a 15s cooldown by default (override with `--failure-cooldown`).
 - Failure noise filtering is on by default (disable with `--no-failure-filter`).
 - `PreToolUse` and `PostToolUse` use race-specific sound pools for variety.
+- `claudecraft game` launches a local browser dashboard with mining/production state.
+- Dashboard renders animated worker shuttles (SCV/Probe/Drone flavor) between minerals and base.
+- Game visuals default to generated placeholder assets; users can configure a local custom pack with `game assets install --pack starcraft-local --assets-dir <dir>`.
 - `all-sounds/` is source/reference; active packaged sounds are copied into `curated-sounds/`.
 - Sounds are auto-downloaded from GitHub on install when not present locally.
 - You can override with `--sounds-dir /absolute/path/to/curated-sounds`.

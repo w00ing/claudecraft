@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "defaultPack": "placeholder",
+  "packs": {
+    "placeholder": {
+      "source": "generated",
+      "files": {
+        "worker": "worker.svg",
+        "base": "base.svg",
+        "mineralPatch": "mineral-patch.svg",
+        "unitLight": "unit-light.svg",
+        "unitHeavy": "unit-heavy.svg",
+        "queue": "queue.svg"
+      }
+    },
+    "starcraft-local": {
+      "source": "user",
+      "files": {
+        "worker": "worker.png",
+        "base": "base.png",
+        "mineralPatch": "mineral-patch.png",
+        "unitLight": "unit-light.png",
+        "unitHeavy": "unit-heavy.png",
+        "queue": "queue.png"
+      }
+    }
+  }
+}

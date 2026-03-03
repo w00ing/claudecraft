@@ -132,3 +132,114 @@ export interface DoctorOptions {
   json?: boolean;
   verbose?: boolean;
 }
+
+export type GameAssetPackName = "placeholder" | "starcraft-local";
+
+export const GAME_ASSET_KEYS = [
+  "worker",
+  "base",
+  "mineralPatch",
+  "unitLight",
+  "unitHeavy",
+  "queue"
+] as const;
+
+export type GameAssetKey = (typeof GAME_ASSET_KEYS)[number];
+
+export interface GameAssetPackDefinition {
+  source: "generated" | "user";
+  files: Record<GameAssetKey, string>;
+}
+
+export interface GameAssetsManifest {
+  version: number;
+  defaultPack: GameAssetPackName;
+  packs: Record<GameAssetPackName, GameAssetPackDefinition>;
+}
+
+export interface GameAssetUserConfig {
+  selectedPack: GameAssetPackName;
+  customPackDir?: string;
+  installedAt: string;
+}
+
+export interface GameProductionItem {
+  id: string;
+  unitType: string;
+  startedAtTick: number;
+  finishAtTick: number;
+}
+
+export interface GameEventDelta {
+  minerals: number;
+  gas: number;
+  workers: number;
+  note: string;
+}
+
+export interface GameEventLogEntry {
+  sourceEvent: HookEventName;
+  at: string;
+  tick: number;
+  payloadSummary?: string;
+  delta: GameEventDelta;
+}
+
+export interface GameState {
+  version: 1;
+  race: FixedRace;
+  tick: number;
+  minerals: number;
+  gas: number;
+  workers: number;
+  workersMining: number;
+  units: Record<string, number>;
+  productionQueue: GameProductionItem[];
+  stats: {
+    eventsHandled: number;
+    failures: number;
+    lastEventAt?: string;
+  };
+  recentEvents: GameEventLogEntry[];
+}
+
+export type GameSessionStatus = "live" | "idle";
+
+export interface GameStateEnvelope {
+  state: GameState;
+  sessionStatus: GameSessionStatus;
+  lastEventAt?: string;
+  idleSeconds?: number;
+  boundGameStatePath: string;
+}
+
+export interface GameCommandCommonOptions {
+  scope?: InstallScope;
+  configPath?: string;
+  projectDir?: string;
+  verbose?: boolean;
+}
+
+export interface GameWatchOptions extends GameCommandCommonOptions {
+  port?: number;
+  open?: boolean;
+  idleThresholdSec?: number;
+}
+
+export interface GameStatusOptions extends GameCommandCommonOptions {
+  json?: boolean;
+}
+
+export interface GameResetOptions extends GameCommandCommonOptions {
+  yes?: boolean;
+}
+
+export interface GameAssetsInstallOptions {
+  pack?: GameAssetPackName;
+  assetsDir?: string;
+  verbose?: boolean;
+}
+
+export interface GameAssetsDoctorOptions {
+  json?: boolean;
+}

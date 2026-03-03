@@ -3,12 +3,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { Command } from "commander";
 import { runDoctor } from "./commands/doctor.js";
+import {
+  runGameAssetsDoctor,
+  runGameAssetsInstall,
+  runGameReset,
+  runGameStatus,
+  runGameWatch
+} from "./commands/game.js";
 import { runInstall } from "./commands/install.js";
 import { runSwitch } from "./commands/switch.js";
 import { runUninstall } from "./commands/uninstall.js";
 import { selectPrompt } from "./lib/prompt.js";
 import { packageRootFromMeta } from "./lib/runtime-paths.js";
-import type { HookPreset, InstallScope, RaceOption } from "./lib/types.js";
+import type { GameAssetPackName, HookPreset, InstallScope, RaceOption } from "./lib/types.js";
 import { showIntro, showOutro } from "./lib/ui.js";
 
 const runtime = { packageRoot: packageRootFromMeta(import.meta.url) };
@@ -122,10 +129,138 @@ program
     );
   });
 
+const game = program.command("game").description("Launch and manage game mode dashboard");
+
+game
+  .option("--scope <scope>", "project|global", parseScope)
+  .option("--project-dir <path>", "Project directory (for project scope)")
+  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--port <port>", "Dashboard port", parseInteger)
+  .option(
+    "--idle-threshold <seconds>",
+    "Mark dashboard idle after N seconds without hook events",
+    parseInteger
+  )
+  .option("--open", "Open dashboard in browser")
+  .option("--verbose", "Verbose output")
+  .action(async (opts) => {
+    await runGameWatch(
+      {
+        scope: opts.scope as InstallScope | undefined,
+        projectDir: opts.projectDir,
+        configPath: opts.configPath,
+        port: opts.port,
+        idleThresholdSec: opts.idleThreshold,
+        open: opts.open,
+        verbose: opts.verbose
+      },
+      runtime
+    );
+  });
+
+game
+  .command("watch")
+  .description("Start local game dashboard server")
+  .option("--scope <scope>", "project|global", parseScope)
+  .option("--project-dir <path>", "Project directory (for project scope)")
+  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--port <port>", "Dashboard port", parseInteger)
+  .option(
+    "--idle-threshold <seconds>",
+    "Mark dashboard idle after N seconds without hook events",
+    parseInteger
+  )
+  .option("--open", "Open dashboard in browser")
+  .option("--verbose", "Verbose output")
+  .action(async (opts) => {
+    await runGameWatch(
+      {
+        scope: opts.scope as InstallScope | undefined,
+        projectDir: opts.projectDir,
+        configPath: opts.configPath,
+        port: opts.port,
+        idleThresholdSec: opts.idleThreshold,
+        open: opts.open,
+        verbose: opts.verbose
+      },
+      runtime
+    );
+  });
+
+game
+  .command("status")
+  .description("Show current game progression state")
+  .option("--scope <scope>", "project|global", parseScope)
+  .option("--project-dir <path>", "Project directory (for project scope)")
+  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--json", "Emit JSON report")
+  .option("--verbose", "Verbose output")
+  .action(async (opts) => {
+    await runGameStatus({
+      scope: opts.scope as InstallScope | undefined,
+      projectDir: opts.projectDir,
+      configPath: opts.configPath,
+      json: opts.json,
+      verbose: opts.verbose
+    });
+  });
+
+game
+  .command("reset")
+  .description("Reset game progression state")
+  .option("--scope <scope>", "project|global", parseScope)
+  .option("--project-dir <path>", "Project directory (for project scope)")
+  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--yes", "Skip confirmation prompts")
+  .option("--verbose", "Verbose output")
+  .action(async (opts) => {
+    await runGameReset({
+      scope: opts.scope as InstallScope | undefined,
+      projectDir: opts.projectDir,
+      configPath: opts.configPath,
+      yes: opts.yes,
+      verbose: opts.verbose
+    });
+  });
+
+const assets = game.command("assets").description("Install and inspect game visual packs");
+
+assets
+  .command("install")
+  .description("Install or configure game visual asset pack")
+  .option("--pack <pack>", "placeholder|starcraft-local", parseAssetPack)
+  .option("--assets-dir <path>", "Path to custom starcraft-local asset directory")
+  .option("--verbose", "Verbose output")
+  .action(async (opts) => {
+    await runGameAssetsInstall(
+      {
+        pack: opts.pack as GameAssetPackName | undefined,
+        assetsDir: opts.assetsDir,
+        verbose: opts.verbose
+      },
+      runtime
+    );
+  });
+
+assets
+  .command("doctor")
+  .description("Check active game asset pack health")
+  .option("--json", "Emit JSON report")
+  .action(async (opts) => {
+    await runGameAssetsDoctor(
+      {
+        json: opts.json
+      },
+      runtime
+    );
+  });
+
 async function main(): Promise<void> {
   if (process.argv.length <= 2 && process.stdin.isTTY && process.stdout.isTTY) {
     showIntro(readCliTitle(runtime.packageRoot));
-    const selection = await selectPrompt<"install" | "switch" | "uninstall" | "doctor" | "help">(
+    const selection = await selectPrompt<
+      "install" | "switch" | "uninstall" | "doctor" | "game" | "help"
+    >(
       "Choose what to set up",
       [
         {
@@ -147,6 +282,11 @@ async function main(): Promise<void> {
           label: "Check setup health",
           value: "doctor",
           hint: "Validate config, mappings, and playable sound files"
+        },
+        {
+          label: "Launch RTS game dashboard",
+          value: "game",
+          hint: "Visualize mining, units, and production in browser"
         },
         {
           label: "Show command help",
@@ -218,4 +358,11 @@ function parseInteger(value: string): number {
     throw new Error("expected an integer value");
   }
   return parsed;
+}
+
+function parseAssetPack(value: string): GameAssetPackName {
+  if (value === "placeholder" || value === "starcraft-local") {
+    return value;
+  }
+  throw new Error("pack must be one of: placeholder, starcraft-local");
 }

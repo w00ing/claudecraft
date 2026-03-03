@@ -4,6 +4,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import type { HookEventName } from "../lib/types.js";
 import { readManifest, resolveSelection, resolveSoundPath } from "../lib/manifest.js";
+import { applyHookEventToGameState, deriveGameStatePath } from "../lib/game-state.js";
 import {
   isFailureInCooldown,
   isToolInCooldown,
@@ -126,6 +127,8 @@ async function main(): Promise<void> {
   });
   const resolvedRace = raceResult.race;
   let stateChanged = raceResult.stateChanged;
+  let shouldPlaySound = true;
+  let payloadForGame: unknown = undefined;
 
   if (event === "PreToolUse" || event === "PostToolUse") {
     const nowMs = Date.now();
@@ -136,32 +139,57 @@ async function main(): Promise<void> {
         cooldownSec: toolCooldownSec
       })
     ) {
-      process.exitCode = 0;
-      return;
+      shouldPlaySound = false;
+    } else {
+      state.lastToolSoundAt = nowMs;
+      stateChanged = true;
     }
-    state.lastToolSoundAt = nowMs;
-    stateChanged = true;
   }
 
   if (event === "PostToolUseFailure") {
     const payload = await readStdinPayload();
+    payloadForGame = payload;
     if (failureFilter && shouldSuppressFailureByFilter(payload)) {
-      process.exitCode = 0;
-      return;
+      shouldPlaySound = false;
+    } else {
+      const nowMs = Date.now();
+      if (
+        isFailureInCooldown({
+          lastFailureAt: state.lastFailureAt,
+          nowMs,
+          cooldownSec: failureCooldownSec
+        })
+      ) {
+        shouldPlaySound = false;
+      } else {
+        state.lastFailureAt = nowMs;
+        stateChanged = true;
+      }
     }
-    const nowMs = Date.now();
-    if (
-      isFailureInCooldown({
-        lastFailureAt: state.lastFailureAt,
-        nowMs,
-        cooldownSec: failureCooldownSec
-      })
-    ) {
-      process.exitCode = 0;
-      return;
-    }
-    state.lastFailureAt = nowMs;
-    stateChanged = true;
+  }
+
+  try {
+    const gameStatePath = deriveGameStatePath({
+      configPath: stateFilePath ?? manifestPath,
+      stateFilePath
+    });
+    await applyHookEventToGameState({
+      gameStatePath,
+      race: resolvedRace,
+      event,
+      payload: payloadForGame
+    });
+  } catch {
+    // Game updates are best-effort and must not break hook playback.
+  }
+
+  if (stateFilePath && stateChanged) {
+    await saveState(stateFilePath, state);
+  }
+
+  if (!shouldPlaySound) {
+    process.exitCode = 0;
+    return;
   }
 
   const manifest = await readManifest(manifestPath);
@@ -175,14 +203,12 @@ async function main(): Promise<void> {
     fileName = pickPoolFile(selection.files, lastPlayed);
     state.lastPoolByKey = state.lastPoolByKey ?? {};
     state.lastPoolByKey[key] = fileName;
-    stateChanged = true;
+    if (stateFilePath) {
+      await saveState(stateFilePath, state);
+    }
   }
 
   const soundPath = resolveSoundPath(manifestPath, manifest, fileName, soundsDir);
-  if (stateFilePath && stateChanged) {
-    await saveState(stateFilePath, state);
-  }
-
   await playFile(soundPath);
 }
 
