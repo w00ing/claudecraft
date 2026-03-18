@@ -1,7 +1,35 @@
 {
   "version": 1,
-  "defaultPack": "open-rts",
+  "defaultPack": "kenney-rts",
   "packs": {
+    "kenney-rts": {
+      "source": "bundled",
+      "files": {
+        "worker": "worker.png",
+        "base": "base.png",
+        "mineralPatch": "mineral-patch.png",
+        "unitLight": "unit-light.png",
+        "unitHeavy": "unit-heavy.png",
+        "queue": "queue.png",
+        "terrainTile": "terrain-tile.png",
+        "terrainCreep": "terrain-creep.png",
+        "uiTopTerran": "ui-top-terran.svg",
+        "uiBottomTerran": "ui-bottom-terran.svg",
+        "uiTopProtoss": "ui-top-protoss.svg",
+        "uiBottomProtoss": "ui-bottom-protoss.svg",
+        "uiTopZerg": "ui-top-zerg.svg",
+        "uiBottomZerg": "ui-bottom-zerg.svg",
+        "minimapFrame": "minimap-frame.svg",
+        "iconMinerals": "icon-minerals.png",
+        "iconSupply": "icon-supply.png",
+        "portraitWorkerTerran": "portrait-worker-terran.png",
+        "portraitWorkerProtoss": "portrait-worker-protoss.png",
+        "portraitWorkerZerg": "portrait-worker-zerg.png",
+        "commandMove": "command-move.png",
+        "commandStop": "command-stop.png",
+        "commandHold": "command-hold.png"
+      }
+    },
     "open-rts": {
       "source": "bundled",
       "files": {
@@ -10,7 +38,24 @@
         "mineralPatch": "mineral-patch.svg",
         "unitLight": "unit-light.svg",
         "unitHeavy": "unit-heavy.svg",
-        "queue": "queue.svg"
+        "queue": "queue.svg",
+        "terrainTile": "terrain-tile.svg",
+        "terrainCreep": "terrain-creep.svg",
+        "uiTopTerran": "ui-top-terran.svg",
+        "uiBottomTerran": "ui-bottom-terran.svg",
+        "uiTopProtoss": "ui-top-protoss.svg",
+        "uiBottomProtoss": "ui-bottom-protoss.svg",
+        "uiTopZerg": "ui-top-zerg.svg",
+        "uiBottomZerg": "ui-bottom-zerg.svg",
+        "minimapFrame": "minimap-frame.svg",
+        "iconMinerals": "icon-minerals.svg",
+        "iconSupply": "icon-supply.svg",
+        "portraitWorkerTerran": "portrait-worker-terran.svg",
+        "portraitWorkerProtoss": "portrait-worker-protoss.svg",
+        "portraitWorkerZerg": "portrait-worker-zerg.svg",
+        "commandMove": "command-move.svg",
+        "commandStop": "command-stop.svg",
+        "commandHold": "command-hold.svg"
       }
     },
     "placeholder": {
@@ -21,7 +66,24 @@
         "mineralPatch": "mineral-patch.svg",
         "unitLight": "unit-light.svg",
         "unitHeavy": "unit-heavy.svg",
-        "queue": "queue.svg"
+        "queue": "queue.svg",
+        "terrainTile": "terrain-tile.svg",
+        "terrainCreep": "terrain-creep.svg",
+        "uiTopTerran": "ui-top-terran.svg",
+        "uiBottomTerran": "ui-bottom-terran.svg",
+        "uiTopProtoss": "ui-top-protoss.svg",
+        "uiBottomProtoss": "ui-bottom-protoss.svg",
+        "uiTopZerg": "ui-top-zerg.svg",
+        "uiBottomZerg": "ui-bottom-zerg.svg",
+        "minimapFrame": "minimap-frame.svg",
+        "iconMinerals": "icon-minerals.svg",
+        "iconSupply": "icon-supply.svg",
+        "portraitWorkerTerran": "portrait-worker-terran.svg",
+        "portraitWorkerProtoss": "portrait-worker-protoss.svg",
+        "portraitWorkerZerg": "portrait-worker-zerg.svg",
+        "commandMove": "command-move.svg",
+        "commandStop": "command-stop.svg",
+        "commandHold": "command-hold.svg"
       }
     },
     "starcraft-local": {
@@ -32,7 +94,24 @@
         "mineralPatch": "mineral-patch.png",
         "unitLight": "unit-light.png",
         "unitHeavy": "unit-heavy.png",
-        "queue": "queue.png"
+        "queue": "queue.png",
+        "terrainTile": "terrain-tile.png",
+        "terrainCreep": "terrain-creep.png",
+        "uiTopTerran": "ui-top-terran.png",
+        "uiBottomTerran": "ui-bottom-terran.png",
+        "uiTopProtoss": "ui-top-protoss.png",
+        "uiBottomProtoss": "ui-bottom-protoss.png",
+        "uiTopZerg": "ui-top-zerg.png",
+        "uiBottomZerg": "ui-bottom-zerg.png",
+        "minimapFrame": "minimap-frame.png",
+        "iconMinerals": "icon-minerals.png",
+        "iconSupply": "icon-supply.png",
+        "portraitWorkerTerran": "portrait-worker-terran.png",
+        "portraitWorkerProtoss": "portrait-worker-protoss.png",
+        "portraitWorkerZerg": "portrait-worker-zerg.png",
+        "commandMove": "command-move.png",
+        "commandStop": "command-stop.png",
+        "commandHold": "command-hold.png"
       }
     }
   }

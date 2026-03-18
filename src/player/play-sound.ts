@@ -19,11 +19,13 @@ import {
   type PlayerState
 } from "../lib/player-logic.js";
 
-function parseFlags(argv: string[]): Record<string, string> {
+function parseFlags(argv: string[]): { flags: Record<string, string>; positional: string[] } {
   const flags: Record<string, string> = {};
+  const positional: string[] = [];
   for (let i = 0; i < argv.length; i += 1) {
     const token = argv[i];
     if (!token.startsWith("--")) {
+      positional.push(token);
       continue;
     }
     const key = token.slice(2);
@@ -35,7 +37,7 @@ function parseFlags(argv: string[]): Record<string, string> {
       flags[key] = "true";
     }
   }
-  return flags;
+  return { flags, positional };
 }
 
 function run(command: string, args: string[]): Promise<void> {
@@ -104,7 +106,7 @@ async function playFile(soundPath: string): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const flags = parseFlags(process.argv.slice(2));
+  const { flags, positional } = parseFlags(process.argv.slice(2));
   const event = flags.event as HookEventName | undefined;
   const manifestPath = flags.manifest;
   const stateFilePath = flags["state-file"];
@@ -128,7 +130,7 @@ async function main(): Promise<void> {
   const resolvedRace = raceResult.race;
   let stateChanged = raceResult.stateChanged;
   let shouldPlaySound = true;
-  let payloadForGame: unknown = undefined;
+  let payloadForGame: unknown = parsePayloadArgument(positional.at(-1));
 
   if (event === "PreToolUse" || event === "PostToolUse") {
     const nowMs = Date.now();
@@ -241,4 +243,15 @@ function parseInteger(value: string | undefined): number | undefined {
   }
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function parsePayloadArgument(value: string | undefined): unknown {
+  if (!value) {
+    return undefined;
+  }
+  try {
+    return JSON.parse(value) as unknown;
+  } catch {
+    return value;
+  }
 }

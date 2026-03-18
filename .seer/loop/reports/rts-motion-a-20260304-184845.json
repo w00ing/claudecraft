@@ -1,0 +1,12 @@
+{
+  "baseline": "/Users/koooo/dev/side-projects/claudecraft/.seer/loop/baselines/rts-motion-a.png",
+  "current": "/Users/koooo/dev/side-projects/claudecraft/.seer/analysis/frames-20260304-b/frame-01.png",
+  "diff_image": "/Users/koooo/dev/side-projects/claudecraft/.seer/loop/diffs/rts-motion-a-20260304-184845.png",
+  "percent_changed": 0.642,
+  "avg_diff_percent": 0.144,
+  "size": {
+    "width": 2418,
+    "height": 2154
+  },
+  "resized": false
+}

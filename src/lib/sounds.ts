@@ -37,7 +37,7 @@ export async function ensureSoundsAvailable(input: {
     return { soundsDir: bundledDir, downloaded: 0 };
   }
 
-  const cacheDir = path.join(os.homedir(), ".claudecraft", "sounds", "curated-sounds");
+  const cacheDir = path.join(os.homedir(), ".agentcraft", "sounds", "curated-sounds");
   const missing = await missingFiles(cacheDir, files);
   if (missing.length === 0) {
     return { soundsDir: cacheDir, downloaded: 0 };

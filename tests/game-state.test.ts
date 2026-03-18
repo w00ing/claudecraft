@@ -13,14 +13,14 @@ describe("game-state", () => {
   test("derives game state path beside state-file", () => {
     const derived = deriveGameStatePath({
       configPath: "/tmp/settings.json",
-      stateFilePath: "/tmp/claudecraft-session.json"
+      stateFilePath: "/tmp/agentcraft-session.json"
     });
-    expect(derived).toBe("/tmp/claudecraft-game-state.json");
+    expect(derived).toBe("/tmp/agentcraft-game-state.json");
   });
 
   test("applies hook event and persists state", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "claudecraft-game-"));
-    const gameStatePath = path.join(tmpDir, "claudecraft-game-state.json");
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentcraft-game-"));
+    const gameStatePath = path.join(tmpDir, "agentcraft-game-state.json");
 
     await applyHookEventToGameState({
       gameStatePath,
@@ -45,8 +45,8 @@ describe("game-state", () => {
   });
 
   test("ignores non-fixed race", async () => {
-    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "claudecraft-game-"));
-    const gameStatePath = path.join(tmpDir, "claudecraft-game-state.json");
+    const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "agentcraft-game-"));
+    const gameStatePath = path.join(tmpDir, "agentcraft-game-state.json");
 
     const result = await applyHookEventToGameState({
       gameStatePath,

@@ -12,7 +12,7 @@ describe("hooks-merge", () => {
     const initial = installManagedHook(
       settings,
       "SessionStart",
-      "node player.js --event \"SessionStart\" --managed-by \"claudecraft\""
+      "node player.js --event \"SessionStart\" --managed-by \"agentcraft\""
     );
     expect(initial.added).toBe(true);
     expect(initial.updated).toBe(false);
@@ -20,7 +20,7 @@ describe("hooks-merge", () => {
     const duplicate = installManagedHook(
       settings,
       "SessionStart",
-      "node player.js --event \"SessionStart\" --managed-by \"claudecraft\""
+      "node player.js --event \"SessionStart\" --managed-by \"agentcraft\""
     );
     expect(duplicate.added).toBe(false);
     expect(duplicate.updated).toBe(false);
@@ -28,7 +28,7 @@ describe("hooks-merge", () => {
     const changed = installManagedHook(
       settings,
       "SessionStart",
-      "node player.js --event \"SessionStart\" --race \"zerg\" --managed-by \"claudecraft\""
+      "node player.js --event \"SessionStart\" --race \"zerg\" --managed-by \"agentcraft\""
     );
     expect(changed.added).toBe(false);
     expect(changed.updated).toBe(true);
@@ -45,7 +45,7 @@ describe("hooks-merge", () => {
             hooks: [
               {
                 type: "command",
-                command: "node managed.js --event \"SessionStart\" --managed-by \"claudecraft\""
+                command: "node managed.js --event \"SessionStart\" --managed-by \"agentcraft\""
               }
             ]
           }
@@ -70,7 +70,7 @@ describe("hooks-merge", () => {
     const result = installManagedHook(
       settings,
       "PreToolUse",
-      "node player.js --event \"PreToolUse\" --managed-by \"claudecraft\""
+      "node player.js --event \"PreToolUse\" --managed-by \"agentcraft\""
     );
 
     expect(result.added).toBe(true);

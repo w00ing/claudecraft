@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { resolveGameStateFilePathFromStateFile } from "./agentcraft-config.js";
 import {
   applyGameEvent,
   createInitialGameState,
@@ -8,14 +9,14 @@ import {
 import { isFixedRace, type PlayerState } from "./player-logic.js";
 import type { FixedRace, GameState, HookEventName } from "./types.js";
 
-export const GAME_STATE_FILE_NAME = "claudecraft-game-state.json";
+export const GAME_STATE_FILE_NAME = "agentcraft-game-state.json";
 
 export function deriveGameStatePath(input: {
   configPath: string;
   stateFilePath?: string;
 }): string {
   if (input.stateFilePath) {
-    return path.join(path.dirname(path.resolve(input.stateFilePath)), GAME_STATE_FILE_NAME);
+    return resolveGameStateFilePathFromStateFile(input.stateFilePath);
   }
   return path.join(path.dirname(path.resolve(input.configPath)), GAME_STATE_FILE_NAME);
 }

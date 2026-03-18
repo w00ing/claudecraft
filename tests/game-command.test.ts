@@ -37,12 +37,12 @@ describe("game-command helpers", () => {
 
     const envelope = buildGameStateEnvelope(
       state,
-      "/tmp/claudecraft-game-state.json",
+      "/tmp/agentcraft-game-state.json",
       20,
       Date.parse("2026-03-03T12:00:12.000Z")
     );
 
-    expect(envelope.boundGameStatePath).toBe("/tmp/claudecraft-game-state.json");
+    expect(envelope.boundGameStatePath).toBe("/tmp/agentcraft-game-state.json");
     expect(envelope.sessionStatus).toBe("live");
     expect(envelope.state.race).toBe("zerg");
   });

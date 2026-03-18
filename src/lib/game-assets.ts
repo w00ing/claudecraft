@@ -11,13 +11,13 @@ import {
 
 const USER_ASSET_CONFIG_PATH = path.join(
   os.homedir(),
-  ".claudecraft",
+  ".agentcraft",
   "game-assets",
   "config.json"
 );
 const PLACEHOLDER_PACK_DIR = path.join(
   os.homedir(),
-  ".claudecraft",
+  ".agentcraft",
   "game-assets",
   "packs",
   "placeholder"
@@ -52,25 +52,15 @@ export async function readGameAssetsManifest(packageRoot: string): Promise<GameA
 export async function resolveGameAssets(input: {
   packageRoot: string;
   verbose?: boolean;
+  preferredPack?: GameAssetPackName;
+  ignoreUserConfig?: boolean;
 }): Promise<ResolvedGameAssets> {
   const manifest = await readGameAssetsManifest(input.packageRoot);
-  const userConfig = await readUserAssetConfig();
-  const selectedPack = userConfig?.selectedPack ?? manifest.defaultPack;
-  const openRtsDir = path.join(input.packageRoot, "assets", "open-rts-pack");
+  const userConfig = input.ignoreUserConfig ? undefined : await readUserAssetConfig();
+  const selectedPack = input.preferredPack ?? userConfig?.selectedPack ?? manifest.defaultPack;
 
-  if (selectedPack === "open-rts") {
-    const missing = await missingPackFiles(openRtsDir, manifest.packs["open-rts"].files);
-    if (missing.length === 0) {
-      return {
-        selectedPack: "open-rts",
-        sourceDir: openRtsDir,
-        files: resolveFileMap(openRtsDir, manifest.packs["open-rts"].files)
-      };
-    }
-    return await fallbackToPlaceholder(
-      manifest,
-      `Open RTS pack missing files: ${missing.join(", ")}`
-    );
+  if (selectedPack === "kenney-rts" || selectedPack === "open-rts") {
+    return await resolveBundledPack(manifest, input.packageRoot, selectedPack);
   }
 
   if (selectedPack === "starcraft-local") {
@@ -110,20 +100,20 @@ export async function installGameAssetsPack(input: {
   verbose?: boolean;
 }): Promise<{ selectedPack: GameAssetPackName; sourceDir: string; missing: string[] }> {
   const manifest = await readGameAssetsManifest(input.packageRoot);
-  const openRtsDir = path.join(input.packageRoot, "assets", "open-rts-pack");
 
-  if (input.pack === "open-rts") {
-    const missing = await missingPackFiles(openRtsDir, manifest.packs["open-rts"].files);
+  if (input.pack === "kenney-rts" || input.pack === "open-rts") {
+    const bundledDir = path.join(input.packageRoot, "assets", `${input.pack}-pack`);
+    const missing = await missingPackFiles(bundledDir, manifest.packs[input.pack].files);
     if (missing.length > 0) {
-      throw new Error(`Bundled open-rts pack is missing files: ${missing.join(", ")}`);
+      throw new Error(`Bundled ${input.pack} pack is missing files: ${missing.join(", ")}`);
     }
     await writeUserAssetConfig({
-      selectedPack: "open-rts",
+      selectedPack: input.pack,
       installedAt: new Date().toISOString()
     });
     return {
-      selectedPack: "open-rts",
-      sourceDir: openRtsDir,
+      selectedPack: input.pack,
+      sourceDir: bundledDir,
       missing: []
     };
   }
@@ -170,17 +160,10 @@ export async function installGameAssetsPack(input: {
 
 export async function doctorGameAssets(packageRoot: string): Promise<GameAssetsDoctorReport> {
   const manifest = await readGameAssetsManifest(packageRoot);
-  const userConfig = await readUserAssetConfig();
   const configExists = await pathExists(USER_ASSET_CONFIG_PATH);
 
   const resolved = await resolveGameAssets({ packageRoot });
-
-  const filesForSelectedPack =
-    resolved.selectedPack === "starcraft-local"
-      ? manifest.packs["starcraft-local"].files
-      : resolved.selectedPack === "open-rts"
-        ? manifest.packs["open-rts"].files
-        : manifest.packs.placeholder.files;
+  const filesForSelectedPack = manifest.packs[resolved.selectedPack].files;
 
   const missing = await missingPackFiles(resolved.sourceDir, filesForSelectedPack);
 
@@ -207,18 +190,35 @@ async function fallbackToPlaceholder(
   };
 }
 
+async function resolveBundledPack(
+  manifest: GameAssetsManifest,
+  packageRoot: string,
+  selectedPack: "kenney-rts" | "open-rts"
+): Promise<ResolvedGameAssets> {
+  const sourceDir = path.join(packageRoot, "assets", `${selectedPack}-pack`);
+  const missing = await missingPackFiles(sourceDir, manifest.packs[selectedPack].files);
+  if (missing.length === 0) {
+    return {
+      selectedPack,
+      sourceDir,
+      files: resolveFileMap(sourceDir, manifest.packs[selectedPack].files)
+    };
+  }
+  return await fallbackToPlaceholder(
+    manifest,
+    `${selectedPack} pack missing files: ${missing.join(", ")}`
+  );
+}
+
 function resolveFileMap(
   sourceDir: string,
   files: Record<GameAssetKey, string>
 ): Record<GameAssetKey, string> {
-  return {
-    worker: path.join(sourceDir, files.worker),
-    base: path.join(sourceDir, files.base),
-    mineralPatch: path.join(sourceDir, files.mineralPatch),
-    unitLight: path.join(sourceDir, files.unitLight),
-    unitHeavy: path.join(sourceDir, files.unitHeavy),
-    queue: path.join(sourceDir, files.queue)
-  };
+  const resolved = {} as Record<GameAssetKey, string>;
+  for (const key of GAME_ASSET_KEYS) {
+    resolved[key] = path.join(sourceDir, files[key]);
+  }
+  return resolved;
 }
 
 async function ensurePlaceholderPackFiles(files: Record<GameAssetKey, string>): Promise<void> {
@@ -235,29 +235,66 @@ async function ensurePlaceholderPackFiles(files: Record<GameAssetKey, string>): 
 }
 
 function buildPlaceholderSvg(key: GameAssetKey): string {
-  const labelMap: Record<GameAssetKey, string> = {
+  const labelMap: Partial<Record<GameAssetKey, string>> = {
     worker: "Worker",
     base: "Base",
     mineralPatch: "Mineral",
     unitLight: "Unit-L",
     unitHeavy: "Unit-H",
-    queue: "Queue"
+    queue: "Queue",
+    terrainTile: "Terrain",
+    terrainCreep: "Creep",
+    uiTopTerran: "UI-T-Top",
+    uiBottomTerran: "UI-T-Bot",
+    uiTopProtoss: "UI-P-Top",
+    uiBottomProtoss: "UI-P-Bot",
+    uiTopZerg: "UI-Z-Top",
+    uiBottomZerg: "UI-Z-Bot",
+    minimapFrame: "Minimap",
+    iconMinerals: "Minerals",
+    iconSupply: "Supply",
+    portraitWorkerTerran: "SCV",
+    portraitWorkerProtoss: "Probe",
+    portraitWorkerZerg: "Drone",
+    commandMove: "Move",
+    commandStop: "Stop",
+    commandHold: "Hold"
   };
 
-  const colorMap: Record<GameAssetKey, string> = {
+  const colorMap: Partial<Record<GameAssetKey, string>> = {
     worker: "#6fbf73",
     base: "#5a67d8",
     mineralPatch: "#00a3c4",
     unitLight: "#f6ad55",
     unitHeavy: "#f56565",
-    queue: "#b794f4"
+    queue: "#b794f4",
+    terrainTile: "#64748b",
+    terrainCreep: "#a855f7",
+    uiTopTerran: "#1e3a8a",
+    uiBottomTerran: "#1d4ed8",
+    uiTopProtoss: "#d97706",
+    uiBottomProtoss: "#f59e0b",
+    uiTopZerg: "#7e22ce",
+    uiBottomZerg: "#6b21a8",
+    minimapFrame: "#0ea5e9",
+    iconMinerals: "#22d3ee",
+    iconSupply: "#22c55e",
+    portraitWorkerTerran: "#0284c7",
+    portraitWorkerProtoss: "#facc15",
+    portraitWorkerZerg: "#fb7185",
+    commandMove: "#10b981",
+    commandStop: "#ef4444",
+    commandHold: "#f59e0b"
   };
+
+  const label = labelMap[key] ?? key;
+  const color = colorMap[key] ?? "#64748b";
 
   return [
     '<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">',
     '<rect x="2" y="2" width="92" height="92" rx="12" fill="#111827" stroke="#374151"/>',
-    `<circle cx="48" cy="40" r="20" fill="${colorMap[key]}" opacity="0.9"/>`,
-    `<text x="48" y="76" fill="#e5e7eb" text-anchor="middle" font-size="12" font-family="monospace">${labelMap[key]}</text>`,
+    `<circle cx="48" cy="40" r="20" fill="${color}" opacity="0.9"/>`,
+    `<text x="48" y="76" fill="#e5e7eb" text-anchor="middle" font-size="12" font-family="monospace">${label}</text>`,
     "</svg>"
   ].join("");
 }
@@ -266,10 +303,7 @@ async function readUserAssetConfig(): Promise<GameAssetUserConfig | undefined> {
   try {
     const raw = await fs.readFile(USER_ASSET_CONFIG_PATH, "utf8");
     const parsed = JSON.parse(raw) as unknown;
-    if (!isGameAssetUserConfig(parsed)) {
-      return undefined;
-    }
-    return parsed;
+    return isGameAssetUserConfig(parsed) ? parsed : undefined;
   } catch {
     return undefined;
   }
@@ -313,6 +347,7 @@ function isGameAssetsManifest(value: unknown): value is GameAssetsManifest {
     return false;
   }
   if (
+    manifest.defaultPack !== "kenney-rts" &&
     manifest.defaultPack !== "open-rts" &&
     manifest.defaultPack !== "placeholder" &&
     manifest.defaultPack !== "starcraft-local"
@@ -324,6 +359,7 @@ function isGameAssetsManifest(value: unknown): value is GameAssetsManifest {
   }
 
   return (
+    isPackDefinition(manifest.packs["kenney-rts"]) &&
     isPackDefinition(manifest.packs["open-rts"]) &&
     isPackDefinition(manifest.packs.placeholder) &&
     isPackDefinition(manifest.packs["starcraft-local"])
@@ -357,6 +393,7 @@ function isGameAssetUserConfig(value: unknown): value is GameAssetUserConfig {
 
   const config = value as Partial<GameAssetUserConfig>;
   if (
+    config.selectedPack !== "kenney-rts" &&
     config.selectedPack !== "open-rts" &&
     config.selectedPack !== "placeholder" &&
     config.selectedPack !== "starcraft-local"

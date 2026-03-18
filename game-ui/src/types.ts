@@ -50,5 +50,8 @@ export interface RuntimeConfig {
   idleThresholdSec: number;
   apiBase: string;
   race: "protoss" | "terran" | "zerg";
-  assetPackVersion: number;
+  uiTheme: "protoss" | "terran" | "zerg";
+  viewAspect: "4:3";
+  assetPack: "open-rts" | "placeholder" | "starcraft-local";
+  assetRevision: number;
 }

@@ -1,14 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
   <defs>
-    <linearGradient id="g0" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#5f7890"/>
-      <stop offset="1" stop-color="#26394b"/>
+    <linearGradient id="top" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8ea6bc"/>
+      <stop offset="1" stop-color="#5b748d"/>
+    </linearGradient>
+    <linearGradient id="left" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4a6076"/>
+      <stop offset="1" stop-color="#33475b"/>
+    </linearGradient>
+    <linearGradient id="right" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#41566b"/>
+      <stop offset="1" stop-color="#26374a"/>
     </linearGradient>
   </defs>
-  <rect x="10" y="10" width="172" height="172" rx="20" fill="#08121c" stroke="#2e4b63" stroke-width="4"/>
-  <path d="M26 118 L56 52 H138 L166 118 L128 154 H64 Z" fill="url(#g0)" stroke="#97b7ce" stroke-width="3"/>
-  <rect x="72" y="72" width="48" height="26" rx="5" fill="#9ec3df"/>
-  <circle cx="56" cy="130" r="10" fill="#2f4659" stroke="#83a9c5"/>
-  <circle cx="136" cy="130" r="10" fill="#2f4659" stroke="#83a9c5"/>
-  <rect x="76" y="112" width="40" height="34" rx="6" fill="#2b3f50" stroke="#80a8c4"/>
+  <ellipse cx="98" cy="148" rx="64" ry="24" fill="#08121b" opacity="0.45"/>
+  <polygon points="44,78 96,52 150,78 96,104" fill="url(#top)" stroke="#b9d2e6" stroke-width="3"/>
+  <polygon points="44,78 44,118 96,148 96,104" fill="url(#left)" stroke="#7f9bb4" stroke-width="2"/>
+  <polygon points="150,78 150,118 96,148 96,104" fill="url(#right)" stroke="#6e8aa4" stroke-width="2"/>
+  <rect x="76" y="86" width="40" height="28" rx="5" fill="#9bc0dc"/>
+  <rect x="80" y="116" width="32" height="20" rx="4" fill="#2f4558" stroke="#7fa6c2"/>
+  <circle cx="64" cy="120" r="7" fill="#2d4257" stroke="#86adc9"/>
+  <circle cx="130" cy="120" r="7" fill="#2d4257" stroke="#86adc9"/>
 </svg>

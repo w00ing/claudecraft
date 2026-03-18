@@ -1,6 +1,18 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 120 120">
-  <rect x="2" y="2" width="116" height="116" rx="18" fill="#08131f" stroke="#2f4f68"/>
-  <path d="M22 84 L36 36 L58 24 L80 40 L94 76 L66 98 Z" fill="#3de5ff" opacity="0.8"/>
-  <path d="M32 78 L44 44 L58 36 L72 46 L82 74 L64 88 Z" fill="#7bf0ff" opacity="0.95"/>
-  <path d="M44 74 L52 52 L62 46 L70 54 L76 70 L64 80 Z" fill="#cbffff"/>
+  <defs>
+    <linearGradient id="m1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#b0fbff"/>
+      <stop offset="1" stop-color="#57dff0"/>
+    </linearGradient>
+    <linearGradient id="m2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7cd9ea"/>
+      <stop offset="1" stop-color="#2ea3bf"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="64" cy="94" rx="40" ry="12" fill="#0a1824" opacity="0.42"/>
+  <polygon points="26,82 38,38 56,28 72,46 64,84" fill="url(#m2)"/>
+  <polygon points="56,28 76,36 90,66 64,84 72,46" fill="url(#m1)"/>
+  <polygon points="44,86 58,48 72,44 84,64 70,90" fill="#9befff" opacity="0.95"/>
+  <polygon points="52,78 60,56 70,52 76,66 68,82" fill="#e7ffff"/>
+  <path d="M56 34 L72 44 M48 58 L72 64 M42 70 L62 78" stroke="#d4ffff" stroke-opacity="0.52"/>
 </svg>

@@ -16,8 +16,10 @@ import { runUninstall } from "./commands/uninstall.js";
 import { selectPrompt } from "./lib/prompt.js";
 import { packageRootFromMeta } from "./lib/runtime-paths.js";
 import type {
+  AgentProvider,
   GameAssetPackName,
   GameUiMode,
+  GameUiTheme,
   HookPreset,
   InstallScope,
   RaceOption
@@ -28,13 +30,14 @@ const runtime = { packageRoot: packageRootFromMeta(import.meta.url) };
 
 const program = new Command();
 program
-  .name("claudecraft")
-  .description("Install StarCraft sounds into Claude Code hooks")
+  .name("agentcraft")
+  .description("Install StarCraft sounds into Codex or Claude Code")
   .showHelpAfterError();
 
 program
   .command("install")
-  .description("Install or update managed hooks")
+  .description("Install or update managed Codex/Claude integrations")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--preset <preset>", "core|expanded", parsePreset)
   .option("--race <race>", "protoss|terran|zerg|random", parseRace)
@@ -43,12 +46,13 @@ program
   .option("--failure-cooldown <seconds>", "Failure hook cooldown in seconds", parseInteger)
   .option("--no-failure-filter", "Disable failure noise filtering")
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--yes", "Skip confirmation prompts")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runInstall(
       {
+        agent: opts.agent as AgentProvider | undefined,
         scope: opts.scope as InstallScope | undefined,
         preset: opts.preset as HookPreset | undefined,
         race: opts.race as RaceOption | undefined,
@@ -67,7 +71,8 @@ program
 
 program
   .command("switch")
-  .description("Switch race and update managed hook settings without reinstall")
+  .description("Switch race and update managed integration settings without reinstall")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--race <race>", "protoss|terran|zerg|random", parseRace)
   .option("--sounds-dir <path>", "Path to curated-sounds directory")
@@ -75,12 +80,13 @@ program
   .option("--failure-cooldown <seconds>", "Failure hook cooldown in seconds", parseInteger)
   .option("--no-failure-filter", "Disable failure noise filtering")
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--yes", "Skip confirmation prompts")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runSwitch(
       {
+        agent: opts.agent as AgentProvider | undefined,
         scope: opts.scope as InstallScope | undefined,
         race: opts.race as RaceOption | undefined,
         soundsDir: opts.soundsDir,
@@ -98,14 +104,16 @@ program
 
 program
   .command("uninstall")
-  .description("Remove managed hooks")
+  .description("Remove managed Codex/Claude integrations")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--yes", "Skip confirmation prompts")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runUninstall({
+      agent: opts.agent as AgentProvider | undefined,
       scope: opts.scope as InstallScope | undefined,
       projectDir: opts.projectDir,
       configPath: opts.configPath,
@@ -116,15 +124,17 @@ program
 
 program
   .command("doctor")
-  .description("Diagnose config and sound setup")
+  .description("Diagnose provider config and sound setup")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--json", "Emit JSON report")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runDoctor(
       {
+        agent: opts.agent as AgentProvider | undefined,
         scope: opts.scope as InstallScope | undefined,
         projectDir: opts.projectDir,
         configPath: opts.configPath,
@@ -138,11 +148,14 @@ program
 const game = program.command("game").description("Launch and manage game mode dashboard");
 
 game
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--ui <mode>", "phaser|legacy", parseGameUi)
   .option("--legacy-ui", "Use legacy inline dashboard renderer")
+  .option("--theme <theme>", "auto|terran|protoss|zerg", parseGameTheme)
+  .option("--asset-pack <pack>", "kenney-rts|open-rts|placeholder|starcraft-local", parseAssetPack)
   .option("--port <port>", "Dashboard port", parseInteger)
   .option(
     "--idle-threshold <seconds>",
@@ -154,10 +167,13 @@ game
   .action(async (opts) => {
     await runGameWatch(
       {
+        agent: opts.agent as AgentProvider | undefined,
         scope: opts.scope as InstallScope | undefined,
         projectDir: opts.projectDir,
         configPath: opts.configPath,
         uiMode: opts.legacyUi ? "legacy" : (opts.ui as GameUiMode | undefined),
+        uiTheme: opts.theme as GameUiTheme | "auto" | undefined,
+        assetPack: opts.assetPack as GameAssetPackName | undefined,
         port: opts.port,
         idleThresholdSec: opts.idleThreshold,
         open: opts.open,
@@ -170,11 +186,14 @@ game
 game
   .command("watch")
   .description("Start local game dashboard server")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--ui <mode>", "phaser|legacy", parseGameUi)
   .option("--legacy-ui", "Use legacy inline dashboard renderer")
+  .option("--theme <theme>", "auto|terran|protoss|zerg", parseGameTheme)
+  .option("--asset-pack <pack>", "kenney-rts|open-rts|placeholder|starcraft-local", parseAssetPack)
   .option("--port <port>", "Dashboard port", parseInteger)
   .option(
     "--idle-threshold <seconds>",
@@ -186,10 +205,13 @@ game
   .action(async (opts) => {
     await runGameWatch(
       {
+        agent: opts.agent as AgentProvider | undefined,
         scope: opts.scope as InstallScope | undefined,
         projectDir: opts.projectDir,
         configPath: opts.configPath,
         uiMode: opts.legacyUi ? "legacy" : (opts.ui as GameUiMode | undefined),
+        uiTheme: opts.theme as GameUiTheme | "auto" | undefined,
+        assetPack: opts.assetPack as GameAssetPackName | undefined,
         port: opts.port,
         idleThresholdSec: opts.idleThreshold,
         open: opts.open,
@@ -202,13 +224,15 @@ game
 game
   .command("status")
   .description("Show current game progression state")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--json", "Emit JSON report")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runGameStatus({
+      agent: opts.agent as AgentProvider | undefined,
       scope: opts.scope as InstallScope | undefined,
       projectDir: opts.projectDir,
       configPath: opts.configPath,
@@ -220,13 +244,15 @@ game
 game
   .command("reset")
   .description("Reset game progression state")
+  .option("--agent <agent>", "claude|codex", parseAgent)
   .option("--scope <scope>", "project|global", parseScope)
   .option("--project-dir <path>", "Project directory (for project scope)")
-  .option("--config-path <path>", "Explicit Claude settings file path")
+  .option("--config-path <path>", "Explicit provider config file path")
   .option("--yes", "Skip confirmation prompts")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
     await runGameReset({
+      agent: opts.agent as AgentProvider | undefined,
       scope: opts.scope as InstallScope | undefined,
       projectDir: opts.projectDir,
       configPath: opts.configPath,
@@ -240,7 +266,7 @@ const assets = game.command("assets").description("Install and inspect game visu
 assets
   .command("install")
   .description("Install or configure game visual asset pack")
-  .option("--pack <pack>", "open-rts|placeholder|starcraft-local", parseAssetPack)
+  .option("--pack <pack>", "kenney-rts|open-rts|placeholder|starcraft-local", parseAssetPack)
   .option("--assets-dir <path>", "Path to custom starcraft-local asset directory")
   .option("--verbose", "Verbose output")
   .action(async (opts) => {
@@ -278,7 +304,7 @@ async function main(): Promise<void> {
         {
           label: "Install StarCraft sounds",
           value: "install",
-          hint: "Download sounds and set Claude hooks"
+          hint: "Choose Claude Code or Codex, then wire up sounds"
         },
         {
           label: "Switch race",
@@ -286,9 +312,9 @@ async function main(): Promise<void> {
           hint: "Protoss/Terran/Zerg/Random"
         },
         {
-          label: "Remove ClaudeCraft setup",
+          label: "Remove AgentCraft setup",
           value: "uninstall",
-          hint: "Remove managed hooks and local session state"
+          hint: "Remove managed integrations and local session state"
         },
         {
           label: "Check setup health",
@@ -322,7 +348,7 @@ async function main(): Promise<void> {
 }
 
 function readCliTitle(packageRoot: string): string {
-  const fallback = "ClaudeCraft";
+  const fallback = "AgentCraft";
   try {
     const packageJsonPath = path.join(packageRoot, "package.json");
     const content = fs.readFileSync(packageJsonPath, "utf8");
@@ -350,6 +376,13 @@ function parseScope(value: string): InstallScope {
   throw new Error("scope must be one of: project, global");
 }
 
+function parseAgent(value: string): AgentProvider {
+  if (value === "claude" || value === "codex") {
+    return value;
+  }
+  throw new Error("agent must be one of: claude, codex");
+}
+
 function parsePreset(value: string): HookPreset {
   if (value === "core" || value === "expanded") {
     return value;
@@ -373,10 +406,15 @@ function parseInteger(value: string): number {
 }
 
 function parseAssetPack(value: string): GameAssetPackName {
-  if (value === "open-rts" || value === "placeholder" || value === "starcraft-local") {
+  if (
+    value === "kenney-rts" ||
+    value === "open-rts" ||
+    value === "placeholder" ||
+    value === "starcraft-local"
+  ) {
     return value;
   }
-  throw new Error("pack must be one of: open-rts, placeholder, starcraft-local");
+  throw new Error("pack must be one of: kenney-rts, open-rts, placeholder, starcraft-local");
 }
 
 function parseGameUi(value: string): GameUiMode {
@@ -384,4 +422,11 @@ function parseGameUi(value: string): GameUiMode {
     return value;
   }
   throw new Error("ui must be one of: phaser, legacy");
+}
+
+function parseGameTheme(value: string): GameUiTheme | "auto" {
+  if (value === "auto" || value === "terran" || value === "protoss" || value === "zerg") {
+    return value;
+  }
+  throw new Error("theme must be one of: auto, terran, protoss, zerg");
 }

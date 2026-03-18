@@ -3,6 +3,8 @@ import fsSync from "node:fs";
 import http from "node:http";
 import path from "node:path";
 import { spawn } from "node:child_process";
+import { readAgentcraftMetadata, resolveMetadataPath } from "../lib/agentcraft-config.js";
+import { resolveAgentProvider, resolveProviderConfigPath } from "../lib/agent-provider.js";
 import {
   installGameAssetsPack,
   doctorGameAssets,
@@ -16,7 +18,6 @@ import {
   saveGameState
 } from "../lib/game-state.js";
 import { createInitialGameState } from "../lib/game-rules.js";
-import { readSettings, resolveConfigPath } from "../lib/claude-config.js";
 import { confirmPrompt } from "../lib/prompt.js";
 import { isFixedRace } from "../lib/player-logic.js";
 import { showOutro, withSpinner } from "../lib/ui.js";
@@ -27,6 +28,7 @@ import type {
   GameAssetKey,
   GameUiMode,
   GameUiRuntimeConfig,
+  GameUiTheme,
   GameResetOptions,
   GameSessionStatus,
   GameState,
@@ -54,7 +56,12 @@ export async function runGameWatch(
   const uiMode = resolveUiMode(options.uiMode);
   const resolvedAssets = await withSpinner(
     "Preparing game assets",
-    () => resolveGameAssets({ packageRoot: runtime.packageRoot, verbose: options.verbose }),
+    () =>
+      resolveGameAssets({
+        packageRoot: runtime.packageRoot,
+        verbose: options.verbose,
+        preferredPack: options.assetPack
+      }),
     "Assets ready"
   );
   const assetsManifest = await readGameAssetsManifest(runtime.packageRoot);
@@ -69,11 +76,15 @@ export async function runGameWatch(
   }
 
   const idleThresholdSec = normalizeIdleThreshold(options.idleThresholdSec);
+  const uiTheme = resolveUiTheme(options.uiTheme, context.race);
   const runtimeConfig: GameUiRuntimeConfig = {
     idleThresholdSec,
     apiBase: "/api",
     race: context.race,
-    assetPackVersion: assetsManifest.version
+    uiTheme,
+    viewAspect: "4:3",
+    assetPack: resolvedAssets.selectedPack,
+    assetRevision: assetsManifest.version
   };
   const gameState = await ensureStateExists(context.gameStatePath, context.race);
   const port = options.port ?? DEFAULT_GAME_PORT;
@@ -185,6 +196,8 @@ export async function runGameWatch(
   process.stdout.write(`Config: ${context.configPath}\n`);
   process.stdout.write(`Game state: ${context.gameStatePath}\n`);
   process.stdout.write(`UI mode: ${uiMode}\n`);
+  process.stdout.write(`UI theme: ${uiTheme}\n`);
+  process.stdout.write(`Asset pack: ${resolvedAssets.selectedPack}\n`);
   process.stdout.write(`Idle threshold: ${idleThresholdSec}s\n`);
   process.stdout.write(`Game dashboard: ${url}\n`);
 
@@ -230,7 +243,7 @@ export async function runGameStatus(options: GameStatusOptions): Promise<void> {
   process.stdout.write(`Race: ${context.race}\n`);
   process.stdout.write(`State file: ${context.gameStatePath}\n`);
   if (!state) {
-    process.stdout.write("State: not initialized (run `claudecraft game` to start)\n");
+    process.stdout.write("State: not initialized (run `agentcraft game` to start)\n");
     return;
   }
 
@@ -306,25 +319,27 @@ export async function runGameAssetsDoctor(
 }
 
 async function resolveGameContext(options: {
+  agent?: "claude" | "codex";
   scope?: InstallScope;
   projectDir?: string;
   configPath?: string;
 }): Promise<GameContext> {
+  const agent = await resolveAgentProvider(options.agent);
   const scope = options.scope ?? "project";
-  const configPath = resolveConfigPath({
+  const configPath = resolveProviderConfigPath({
+    agent,
     scope,
     projectDir: options.projectDir,
     configPath: options.configPath
   });
-  const settings = await readSettings(configPath);
+  const metadataPath = resolveMetadataPath({ agent, configPath });
+  const metadata = await readAgentcraftMetadata(metadataPath);
 
-  const stateFilePath =
-    typeof settings.claudecraft?.stateFile === "string"
-      ? settings.claudecraft.stateFile
-      : path.join(path.dirname(configPath), "claudecraft-session.json");
-
-  const gameStatePath = deriveGameStatePath({ configPath, stateFilePath });
-  const race = await resolveRace(settings.claudecraft?.race, gameStatePath);
+  const gameStatePath = deriveGameStatePath({
+    configPath,
+    stateFilePath: metadata?.stateFile
+  });
+  const race = await resolveRace(metadata?.race, gameStatePath);
   return { configPath, gameStatePath, race };
 }
 
@@ -416,6 +431,13 @@ function resolveUiMode(value: GameUiMode | undefined): GameUiMode {
     return "legacy";
   }
   return "phaser";
+}
+
+function resolveUiTheme(value: GameWatchOptions["uiTheme"], race: FixedRace): GameUiTheme {
+  if (value === "terran" || value === "protoss" || value === "zerg") {
+    return value;
+  }
+  return race;
 }
 
 async function ensurePhaserBuildExists(distDir: string): Promise<void> {
@@ -542,7 +564,7 @@ function buildDashboardHtml(race: FixedRace, idleThresholdSec: number): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ClaudeCraft RTS</title>
+    <title>AgentCraft RTS</title>
     <style>
       :root {
         --bg-0: #09131f;
@@ -681,7 +703,7 @@ function buildDashboardHtml(race: FixedRace, idleThresholdSec: number): string {
     <div class="wrap">
       <div class="hero">
         <div>
-          <h1 class="title">ClaudeCraft Operations Console</h1>
+          <h1 class="title">AgentCraft Operations Console</h1>
           <div class="race">Race: ${race}</div>
         </div>
         <div>
@@ -1019,9 +1041,9 @@ function buildDashboardHtml(race: FixedRace, idleThresholdSec: number): string {
         sessionPathEl.textContent = 'Session: ' + (envelope.boundGameStatePath || '-');
         if (status === 'idle') {
           idleNoteEl.textContent =
-            'No recent hook events. Waiting for active Claude session updates.';
+            'No recent events. Waiting for active agent session updates.';
         } else {
-          idleNoteEl.textContent = 'Live updates from active Claude session.';
+          idleNoteEl.textContent = 'Live updates from active agent session.';
         }
       }
 

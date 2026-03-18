@@ -2,7 +2,7 @@
   "version": 1,
   "provider": "github-raw",
   "owner": "w00ing",
-  "repo": "claudecraft",
+  "repo": "agentcraft",
   "ref": "main",
   "subdir": "curated-sounds"
 }

@@ -1,11 +1,11 @@
 {
-  "name": "@wyverselabs/claudecraft",
+  "name": "@wyverselabs/agentcraft",
   "version": "0.1.12",
-  "description": "CLI for installing StarCraft sounds into Claude Code hooks",
+  "description": "CLI for installing StarCraft sounds into Claude Code or Codex",
   "type": "module",
   "packageManager": "bun@1.3.0",
   "bin": {
-    "claudecraft": "./dist/cli.js"
+    "agentcraft": "./dist/cli.js"
   },
   "files": [
     "dist",
@@ -21,13 +21,22 @@
     "typecheck:cli": "tsc --noEmit -p tsconfig.json",
     "typecheck:game-ui": "tsc --noEmit -p game-ui/tsconfig.json",
     "test": "bun test",
-    "dev:game": "concurrently -k -n UI,CLI \"vite build --watch\" \"bun --watch src/cli.ts game --ui phaser --port 4318 --open\"",
+    "dev:game": "bun run build:game-ui && concurrently -k -n UI,CLI \"AGENTCRAFT_GAME_API_ORIGIN=http://127.0.0.1:4320 vite --host 127.0.0.1 --port 5173 --open\" \"bun --watch src/cli.ts game --ui phaser --port 4320\"",
+    "dev:game:starcraft-local": "bun run build:game-ui && concurrently -k -n UI,CLI \"AGENTCRAFT_GAME_API_ORIGIN=http://127.0.0.1:4320 vite --host 127.0.0.1 --port 5173 --open\" \"bun --watch src/cli.ts game --ui phaser --asset-pack starcraft-local --port 4320\"",
+    "dev:game:watch": "concurrently -k -n UI,CLI \"vite build --watch\" \"bun --watch src/cli.ts game --ui phaser --port 4318 --open\"",
+    "dev:game:starcraft-local:watch": "concurrently -k -n UI,CLI \"vite build --watch\" \"bun --watch src/cli.ts game --ui phaser --asset-pack starcraft-local --port 4318 --open\"",
+    "dev:game:hmr": "bun run dev:game",
+    "dev:game:starcraft-local:hmr": "bun run dev:game:starcraft-local",
     "dev:game-ui": "vite",
+    "assets:import:starcraft-clone": "python3 scripts/import-starcraft-clone-assets.py",
+    "assets:install:starcraft-local": "bun src/cli.ts game assets install --pack starcraft-local --assets-dir assets/starcraft-local-from-clone",
     "curate:tool-sounds": "bun scripts/curate-tool-pools.ts --write",
     "prepublishOnly": "bun run build"
   },
   "keywords": [
     "claude-code",
+    "codex",
+    "codex-code",
     "hooks",
     "starcraft",
     "cli"

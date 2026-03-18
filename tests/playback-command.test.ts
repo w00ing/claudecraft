@@ -41,6 +41,23 @@ describe("playback-command", () => {
     expect(command).toContain("--no-failure-filter");
   });
 
+  test("adds no-failure-filter flag for Codex hooks when disabled", () => {
+    const command = buildCodexHookCommand({
+      playerScriptPath: "/tmp/play-sound.js",
+      agent: "codex",
+      manifestPath: "/tmp/manifest.json",
+      event: "SessionStart",
+      race: "protoss",
+      stateFilePath: "/tmp/state.json",
+      soundsDir: "/tmp/sounds",
+      toolCooldownSec: 1,
+      failureCooldownSec: 7,
+      failureFilter: false
+    });
+    expect(command).toContain("--no-failure-filter");
+    expect(command).toContain("--agent \"codex\"");
+  });
+
   test("builds Codex native hook commands as shell strings", () => {
     const command = buildCodexHookCommand({
       playerScriptPath: "/tmp/play-sound.js",
