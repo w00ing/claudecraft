@@ -1,61 +1,106 @@
 import fs from "node:fs/promises";
-import path from "node:path";
 import {
-  pathExists,
-  readSettings,
-  resolveConfigPath,
-  writeSettings
-} from "../lib/claude-config.js";
+  deleteAgentcraftMetadata,
+  formatScopeLabel,
+  readAgentcraftMetadata,
+  resolveMetadataPath
+} from "../lib/agentcraft-config.js";
+import { resolveAgentProvider, resolveProviderConfigPath } from "../lib/agent-provider.js";
+import { pathExists, readSettings, writeSettings } from "../lib/claude-config.js";
+import {
+  uninstallManagedCodexHooks,
+  uninstallManagedCodexHooksFeature,
+  uninstallManagedCodexNotify
+} from "../lib/codex-config.js";
 import { uninstallManagedHooks } from "../lib/hooks-merge.js";
 import { confirmPrompt, selectPrompt } from "../lib/prompt.js";
 import { showOutro, withSpinner } from "../lib/ui.js";
 import type { InstallScope, UninstallOptions } from "../lib/types.js";
 
 export async function runUninstall(options: UninstallOptions): Promise<void> {
+  const agent = await resolveAgentProvider(options.agent);
   const scope =
     options.scope ??
     (await selectPrompt<InstallScope>("Uninstall scope:", [
-      { label: "Project local (.claude/settings.local.json)", value: "project" },
-      { label: "Global (~/.claude/settings.json)", value: "global" }
+      { label: formatScopeLabel({ agent, scope: "project" }), value: "project" },
+      { label: formatScopeLabel({ agent, scope: "global" }), value: "global" }
     ]));
 
-  const configPath = resolveConfigPath({
+  const configPath = resolveProviderConfigPath({
+    agent,
     scope,
     projectDir: options.projectDir,
     configPath: options.configPath
   });
+  const metadataPath = resolveMetadataPath({ agent, configPath });
 
   if (!options.yes) {
-    const shouldContinue = await confirmPrompt(`Remove ClaudeCraft hooks from ${configPath}?`);
+    const shouldContinue = await confirmPrompt(
+      `Remove AgentCraft ${agent} integration from ${configPath}?`
+    );
     if (!shouldContinue) {
       process.stdout.write("Cancelled.\n");
       return;
     }
   }
 
-  const stateFilePath = path.join(path.dirname(configPath), "claudecraft-session.json");
-  const { removed, removedStateFile } = await withSpinner(
-    "Removing managed hooks",
-    async () => {
-      const settings = await readSettings(configPath);
-      const { removed } = uninstallManagedHooks(settings);
-      delete settings.claudecraft;
-      await writeSettings(configPath, settings);
-      let removedStateFile = false;
-      if (await pathExists(stateFilePath)) {
-        await fs.unlink(stateFilePath);
-        removedStateFile = true;
-      }
-      return { removed, removedStateFile };
-    },
-    "Removed managed hooks"
-  );
+  const metadata = await resolveExistingMetadata(metadataPath);
 
+  const result =
+    agent === "claude"
+      ? await withSpinner(
+          "Removing managed hooks",
+          async () => {
+            const settings = await readSettings(configPath);
+            const removed = uninstallManagedHooks(settings);
+            delete settings.agentcraft;
+            await writeSettings(configPath, settings);
+            return { removed: removed.removed };
+          },
+          "Removed managed hooks"
+        )
+      : await withSpinner(
+          "Removing managed Codex hooks",
+          async () => {
+            const hooksRemoved = await uninstallManagedCodexHooks(configPath);
+            const notifyRemoved = await uninstallManagedCodexNotify(configPath);
+            await uninstallManagedCodexHooksFeature(configPath);
+            return { removed: hooksRemoved.removed + (notifyRemoved.removed ? 1 : 0) };
+          },
+          "Removed managed Codex hooks"
+        );
+
+  const removedStateFile = await removeIfExists(metadata?.stateFile);
+  const removedMetadata = await deleteAgentcraftMetadata(metadataPath);
+
+  process.stdout.write(`Agent: ${agent}\n`);
   process.stdout.write(`Config: ${configPath}\n`);
-  process.stdout.write(`Removed hooks: ${removed}\n`);
+  process.stdout.write(`Removed integrations: ${result.removed}\n`);
   process.stdout.write(
-    `Removed state file: ${removedStateFile ? stateFilePath : "(none found)"}\n`
+    `Removed metadata: ${removedMetadata ? metadataPath : "(none found)"}\n`
   );
-  process.stdout.write(removed === 0 ? "No matching hooks found.\n" : "Uninstall complete.\n");
-  showOutro(removed === 0 ? "No hooks to remove" : "Uninstall complete");
+  process.stdout.write(
+    `Removed state file: ${
+      removedStateFile ? metadata?.stateFile : "(none found)"
+    }\n`
+  );
+  process.stdout.write(result.removed === 0 ? "No matching integration found.\n" : "Uninstall complete.\n");
+  showOutro(result.removed === 0 ? "No integration to remove" : "Uninstall complete");
+}
+
+async function resolveExistingMetadata(metadataPath: string) {
+  return await readAgentcraftMetadata(metadataPath);
+}
+
+async function removeIfExists(targetPath: string | undefined): Promise<boolean> {
+  if (!targetPath) {
+    return false;
+  }
+
+  if (!(await pathExists(targetPath))) {
+    return false;
+  }
+
+  await fs.unlink(targetPath);
+  return true;
 }

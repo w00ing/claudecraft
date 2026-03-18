@@ -1,9 +1,21 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
-import { pathExists, readSettings, resolveConfigPath } from "../lib/claude-config.js";
+import { readAgentcraftMetadata, resolveMetadataPath } from "../lib/agentcraft-config.js";
+import { resolveAgentProvider, resolveProviderConfigPath } from "../lib/agent-provider.js";
+import { pathExists, readSettings } from "../lib/claude-config.js";
+import {
+  readManagedCodexHooksFeatureState,
+  readManagedCodexHooksState,
+  readManagedCodexNotifyState
+} from "../lib/codex-config.js";
 import { listInstalledManagedEvents } from "../lib/hooks-merge.js";
-import { listAllManifestFiles, readManifest, resolveSelection, resolveSoundPath } from "../lib/manifest.js";
+import {
+  listAllManifestFiles,
+  readManifest,
+  resolveSelection,
+  resolveSoundPath
+} from "../lib/manifest.js";
 import { showOutro, withSpinner } from "../lib/ui.js";
 import {
   ALL_EVENTS,
@@ -15,9 +27,15 @@ import {
 } from "../lib/types.js";
 
 interface DoctorReport {
+  agent: "claude" | "codex";
   configPath: string;
   configFound: boolean;
-  installedEvents: HookEventName[];
+  metadataPath: string;
+  metadataFound: boolean;
+  installedEvents: string[];
+  codexHooksFeatureEnabled?: boolean;
+  codexHooksPath?: string;
+  codexHooksParseError?: string;
   configuredRace?: RaceOption;
   soundsDir?: string;
   toolCooldownSec?: number;
@@ -84,16 +102,22 @@ export async function runDoctor(
   options: DoctorOptions,
   runtime: { packageRoot: string }
 ): Promise<void> {
+  const agent = await resolveAgentProvider(options.agent);
   const scope = (options.scope ?? "project") as InstallScope;
-  const configPath = resolveConfigPath({
+  const configPath = resolveProviderConfigPath({
+    agent,
     scope,
     projectDir: options.projectDir,
     configPath: options.configPath
   });
+  const metadataPath = resolveMetadataPath({ agent, configPath });
 
   const report: DoctorReport = {
+    agent,
     configPath,
     configFound: false,
+    metadataPath,
+    metadataFound: false,
     installedEvents: [],
     configuredRace: undefined,
     soundsDir: undefined,
@@ -105,75 +129,103 @@ export async function runDoctor(
     playbackSupport: playbackStatus()
   };
 
-  await withSpinner("Inspecting Claude settings", async () => {
-    report.configFound = await pathExists(configPath);
+  await withSpinner(
+    `Inspecting ${agent === "claude" ? "Claude" : "Codex"} config`,
+    async () => {
+      report.configFound = await pathExists(configPath);
+      const metadata = await readAgentcraftMetadata(metadataPath);
+      if (metadata) {
+        report.metadataFound = true;
+        report.configuredRace = metadata.race;
+        report.soundsDir = metadata.soundsDir;
+        report.toolCooldownSec = metadata.toolCooldownSec;
+        report.failureCooldownSec = metadata.failureCooldownSec;
+        report.failureFilter = metadata.failureFilter;
+      }
 
-    try {
-      const settings = await readSettings(configPath);
-      report.installedEvents = listInstalledManagedEvents(settings);
-      const race = settings.claudecraft?.race;
-      if (race === "protoss" || race === "terran" || race === "zerg" || race === "random") {
-        report.configuredRace = race;
+      if (agent === "claude") {
+        const settings = await readSettings(configPath);
+        report.installedEvents = listInstalledManagedEvents(settings);
+      } else {
+        const [notifyState, featureState, hooksState] = await Promise.all([
+          readManagedCodexNotifyState(configPath),
+          readManagedCodexHooksFeatureState(configPath),
+          readManagedCodexHooksState(configPath)
+        ]);
+        report.codexHooksFeatureEnabled = featureState.codexHooksEnabled;
+        report.codexHooksPath = hooksState.hooksPath;
+        report.codexHooksParseError = hooksState.parseError;
+        report.installedEvents = [
+          ...hooksState.installedEvents,
+          ...(notifyState.hasManagedNotify ? ["agent-turn-complete -> Notification"] : [])
+        ];
       }
-      if (typeof settings.claudecraft?.soundsDir === "string") {
-        report.soundsDir = settings.claudecraft.soundsDir;
-      }
-      if (typeof settings.claudecraft?.toolCooldownSec === "number") {
-        report.toolCooldownSec = settings.claudecraft.toolCooldownSec;
-      }
-      if (typeof settings.claudecraft?.failureCooldownSec === "number") {
-        report.failureCooldownSec = settings.claudecraft.failureCooldownSec;
-      }
-      if (typeof settings.claudecraft?.failureFilter === "boolean") {
-        report.failureFilter = settings.claudecraft.failureFilter;
-      }
-    } catch (error) {
-      process.stderr.write(`Failed to parse config: ${(error as Error).message}\n`);
-    }
-  }, "Settings inspected");
+    },
+    "Config inspected"
+  );
 
   const manifestPath = path.join(runtime.packageRoot, "assets", "manifest.json");
-  const manifest = await withSpinner("Validating manifest mappings", async () => {
-    const manifest = await readManifest(manifestPath);
-    for (const race of FIXED_RACES) {
-      for (const event of ALL_EVENTS) {
-        const selection = resolveSelection(manifest, race, event);
-        if (selection.type === "single" && !selection.file) {
-          report.missingMappings.push(`${race}.${event}`);
-        }
-        if (selection.type === "pool" && selection.files.length === 0) {
-          report.missingMappings.push(`${race}.${event}`);
+  const manifest = await withSpinner(
+    "Validating manifest mappings",
+    async () => {
+      const loadedManifest = await readManifest(manifestPath);
+      for (const race of FIXED_RACES) {
+        for (const event of ALL_EVENTS) {
+          const selection = resolveSelection(loadedManifest, race, event);
+          if (selection.type === "single" && !selection.file) {
+            report.missingMappings.push(`${race}.${event}`);
+          }
+          if (selection.type === "pool" && selection.files.length === 0) {
+            report.missingMappings.push(`${race}.${event}`);
+          }
         }
       }
-    }
-    return manifest;
-  }, "Mappings validated");
+      return loadedManifest;
+    },
+    "Mappings validated"
+  );
 
-  await withSpinner("Checking curated sound files", async () => {
-    for (const fileName of listAllManifestFiles(manifest)) {
-      const resolved = resolveSoundPath(manifestPath, manifest, fileName, report.soundsDir);
-      try {
-        await fs.access(resolved);
-      } catch {
-        report.missingSoundFiles.push(resolved);
+  await withSpinner(
+    "Checking curated sound files",
+    async () => {
+      for (const fileName of listAllManifestFiles(manifest)) {
+        const resolved = resolveSoundPath(manifestPath, manifest, fileName, report.soundsDir);
+        try {
+          await fs.access(resolved);
+        } catch {
+          report.missingSoundFiles.push(resolved);
+        }
       }
-    }
-  }, "Sound file check complete");
+    },
+    "Sound file check complete"
+  );
 
   if (options.json) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return;
   }
 
+  process.stdout.write(`Agent: ${report.agent}\n`);
   process.stdout.write(`Config path: ${report.configPath}\n`);
   process.stdout.write(`Config readable: ${report.configFound ? "yes" : "no"}\n`);
+  process.stdout.write(`Metadata path: ${report.metadataPath}\n`);
+  process.stdout.write(`Metadata readable: ${report.metadataFound ? "yes" : "no"}\n`);
   process.stdout.write(`Configured race: ${report.configuredRace ?? "(none)"}\n`);
   process.stdout.write(`Sounds dir: ${report.soundsDir ?? "(manifest default)"}\n`);
   process.stdout.write(`Tool cooldown: ${report.toolCooldownSec ?? 2}s\n`);
   process.stdout.write(`Failure cooldown: ${report.failureCooldownSec ?? 15}s\n`);
   process.stdout.write(`Failure filter: ${(report.failureFilter ?? true) ? "on" : "off"}\n`);
+  if (report.agent === "codex") {
+    process.stdout.write(
+      `Codex hooks feature: ${report.codexHooksFeatureEnabled ? "on" : "off"}\n`
+    );
+    process.stdout.write(`Codex hooks path: ${report.codexHooksPath ?? "(not resolved)"}\n`);
+    if (report.codexHooksParseError) {
+      process.stdout.write(`Codex hooks parse error: ${report.codexHooksParseError}\n`);
+    }
+  }
   process.stdout.write(
-    `Installed events: ${
+    `Installed integrations: ${
       report.installedEvents.length ? report.installedEvents.join(", ") : "(none)"
     }\n`
   );

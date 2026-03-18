@@ -1,4 +1,5 @@
-export const MANAGED_BY = "claudecraft";
+export const MANAGED_BY = "agentcraft";
+export const AGENT_PROVIDERS = ["claude", "codex"] as const;
 
 export const ALL_EVENTS = [
   "SessionStart",
@@ -32,11 +33,16 @@ export const EVENT_MATCHERS: Partial<Record<HookEventName, string>> = {
   PostToolUseFailure: "Bash"
 };
 
+export const CODEX_HOOK_EVENTS = ["SessionStart", "Stop"] as const;
+
 export type HookEventName = (typeof ALL_EVENTS)[number];
 export type HookPreset = keyof typeof PRESET_EVENTS;
 export type InstallScope = "project" | "global";
 export type RaceOption = (typeof RACES)[number];
 export type FixedRace = (typeof FIXED_RACES)[number];
+export type AgentProvider = (typeof AGENT_PROVIDERS)[number];
+export type CodexNotifyEventName = "agent-turn-complete";
+export type CodexHookEventName = (typeof CODEX_HOOK_EVENTS)[number];
 
 export interface CommandHook {
   type: "command";
@@ -53,7 +59,7 @@ export type HooksMap = Partial<Record<HookEventName, HookEntry[]>>;
 
 export interface ClaudeSettings {
   hooks?: HooksMap;
-  claudecraft?: ClaudecraftSettingsMetadata;
+  agentcraft?: AgentcraftEmbeddedMetadata;
   [key: string]: unknown;
 }
 
@@ -78,7 +84,7 @@ export interface SoundManifest {
   races: Record<FixedRace, Record<HookEventName, SoundSelection>>;
 }
 
-export interface ClaudecraftSettingsMetadata {
+export interface AgentcraftSettingsMetadata {
   race: RaceOption;
   source: string;
   manifestVersion: number;
@@ -90,7 +96,30 @@ export interface ClaudecraftSettingsMetadata {
   installedAt: string;
 }
 
+export interface AgentcraftEmbeddedMetadata extends AgentcraftSettingsMetadata {
+  agent: AgentProvider;
+  configPath?: string;
+  preset?: HookPreset;
+}
+
+export interface AgentcraftMetadata {
+  version: 1;
+  agent: AgentProvider;
+  race: RaceOption;
+  source: string;
+  manifestVersion: number;
+  stateFile: string;
+  soundsDir: string;
+  toolCooldownSec: number;
+  failureCooldownSec: number;
+  failureFilter: boolean;
+  installedAt: string;
+  configPath: string;
+  preset?: HookPreset;
+}
+
 export interface InstallOptions {
+  agent?: AgentProvider;
   scope?: InstallScope;
   preset?: HookPreset;
   race?: RaceOption;
@@ -105,6 +134,7 @@ export interface InstallOptions {
 }
 
 export interface SwitchOptions {
+  agent?: AgentProvider;
   scope?: InstallScope;
   race?: RaceOption;
   soundsDir?: string;
@@ -118,6 +148,7 @@ export interface SwitchOptions {
 }
 
 export interface UninstallOptions {
+  agent?: AgentProvider;
   scope?: InstallScope;
   configPath?: string;
   projectDir?: string;
@@ -126,6 +157,7 @@ export interface UninstallOptions {
 }
 
 export interface DoctorOptions {
+  agent?: AgentProvider;
   scope?: InstallScope;
   configPath?: string;
   projectDir?: string;
@@ -133,7 +165,7 @@ export interface DoctorOptions {
   verbose?: boolean;
 }
 
-export type GameAssetPackName = "open-rts" | "placeholder" | "starcraft-local";
+export type GameAssetPackName = "kenney-rts" | "open-rts" | "placeholder" | "starcraft-local";
 
 export const GAME_ASSET_KEYS = [
   "worker",
@@ -141,7 +173,24 @@ export const GAME_ASSET_KEYS = [
   "mineralPatch",
   "unitLight",
   "unitHeavy",
-  "queue"
+  "queue",
+  "terrainTile",
+  "terrainCreep",
+  "uiTopTerran",
+  "uiBottomTerran",
+  "uiTopProtoss",
+  "uiBottomProtoss",
+  "uiTopZerg",
+  "uiBottomZerg",
+  "minimapFrame",
+  "iconMinerals",
+  "iconSupply",
+  "portraitWorkerTerran",
+  "portraitWorkerProtoss",
+  "portraitWorkerZerg",
+  "commandMove",
+  "commandStop",
+  "commandHold"
 ] as const;
 
 export type GameAssetKey = (typeof GAME_ASSET_KEYS)[number];
@@ -214,15 +263,20 @@ export interface GameStateEnvelope {
 }
 
 export type GameUiMode = "phaser" | "legacy";
+export type GameUiTheme = "terran" | "protoss" | "zerg";
 
 export interface GameUiRuntimeConfig {
   idleThresholdSec: number;
   apiBase: string;
   race: FixedRace;
-  assetPackVersion: number;
+  uiTheme: GameUiTheme;
+  viewAspect: "4:3";
+  assetPack: GameAssetPackName;
+  assetRevision: number;
 }
 
 export interface GameCommandCommonOptions {
+  agent?: AgentProvider;
   scope?: InstallScope;
   configPath?: string;
   projectDir?: string;
@@ -234,6 +288,8 @@ export interface GameWatchOptions extends GameCommandCommonOptions {
   open?: boolean;
   idleThresholdSec?: number;
   uiMode?: GameUiMode;
+  uiTheme?: GameUiTheme | "auto";
+  assetPack?: GameAssetPackName;
 }
 
 export interface GameStatusOptions extends GameCommandCommonOptions {
