@@ -5,9 +5,9 @@ Interactive prompts are powered by Clack (`@clack/prompts`).
 
 ## Demo
 
-[![AgentCraft demo](assets/claudecraft-demo-short.gif)](assets/claudecraft-demo-short.mp4)
+[![AgentCraft demo](assets/agentcraft-demo-short.gif)](assets/agentcraft-demo-short.mp4)
 
-[Download demo video (MP4)](assets/claudecraft-demo-short.mp4)
+[Download demo video (MP4)](assets/agentcraft-demo-short.mp4)
 
 ## Run with npx
 
